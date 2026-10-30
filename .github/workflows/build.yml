@@ -50,8 +50,17 @@ jobs:
         run: |
           [ -z "$SIGNING_STORE_PASSWORD" ] && unset SIGNING_STORE_PASSWORD SIGNING_KEY_ALIAS SIGNING_KEY_PASSWORD
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee build.log
           cp app/build/outputs/apk/release/app-release.apk SniperAR-${{ github.run_number }}.apk
+
+      - name: Resumen de errores
+        if: failure()
+        run: |
+          [ -f build.log ] || exit 0
+          grep -E "^e: |error:|What went wrong|Could not|> " build.log | head -60 > errs.txt || true
+          msg=$(sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g' errs.txt)
+          echo "::error title=Gradle::$msg"
 
       - name: Guardar artefacto
         uses: actions/upload-artifact@v4
